@@ -3,14 +3,15 @@ from GeneralHashFunctions import *
 
 
 class BloomFilter:
-    def __init__(self, n_bit, *hash_func):
+    def __init__(self, n_bit, stats, *hash_func):
         """
         :param n_bit: number of bits in the bit array
+        :param stats: record statistics about the filter if True
         :param hash_func: list of hash functions to use
         """
-        self.n_bit = n_bit
+        self.stats = stats
         self.hash_func = hash_func
-        self.bit_array = Bitarray(self.n_bit)
+        self.bit_array = Bitarray(n_bit)
         # save all added keywords
         # acts as ground truth in calculating the false positive rate
         self.added_keywords = set()
@@ -24,22 +25,24 @@ class BloomFilter:
         Set corresponding bits specified by hashing the keyword
         :param keyword: string
         """
-        self.added_keywords.add(keyword)
+        if self.stats:
+            self.added_keywords.add(keyword)
         for hash_f in self.hash_func:
             self.bit_array.set(hash_f(keyword) % self.bit_array.size)
 
     def query(self, keyword):
         """
-        Determine whether a keyword has been added to the Bloom Filter
+        Determine whether a keyword has been added to the Bloom filter
         :param keyword: string
         :return: bool
         """
         for hash_f in self.hash_func:
             # if the bit specified by the hash is not set
             if not self.bit_array.get(hash_f(keyword) % self.bit_array.size):
-                self.n_true_negatives += 1
+                if self.stats:
+                    self.n_true_negatives += 1
                 return False    # keyword hasn't been added to the filter
-        if keyword not in self.added_keywords:
+        if self.stats and keyword not in self.added_keywords:
             self.n_false_positives += 1
         return True     # all bits are set, keyword may have been added
 
@@ -66,16 +69,16 @@ if __name__ == "__main__":
     BIT_ARRAY_SIZE = 131072
     my_filter = BloomFilter(
         BIT_ARRAY_SIZE,
+        True,
         RSHash,
         hash,
         JSHash,
         SDBMHash,
         FNVHash
     )
-    with open('code/pg1661.txt', 'r') as f:
+    with open('instructions/4/samples4/testfolder/pg1661.txt', 'r') as f:
         for line in f:
             for word in line.strip().split(' '):
                 if not my_filter.query(word):
                     my_filter.set(word)
-    print(my_filter.false_positive_rate())
-    print(len(my_filter.added_keywords))
+    my_filter.print_stats()
