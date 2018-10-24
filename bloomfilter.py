@@ -1,18 +1,18 @@
 from Bitarray import Bitarray
-import GeneralHashFunctions
+from GeneralHashFunctions import *
 
 
 class BloomFilter:
-    def __init__(self, n_bit_, *hash_func_):
+    def __init__(self, n_bit, *hash_func):
         """
-        :param n_bit_: number of bits in the bit array
-        :param hash_func_: list of hash functions to use
+        :param n_bit: number of bits in the bit array
+        :param hash_func: list of hash functions to use
         """
-        self.n_bit = n_bit_
-        self.hash_func = hash_func_
+        self.n_bit = n_bit
+        self.hash_func = hash_func
         self.bit_array = Bitarray(self.n_bit)
         # save all added keywords
-        # acts as gruond truth in calculating the false positive rate
+        # acts as ground truth in calculating the false positive rate
         self.added_keywords = set()
         self.n_false_positives = 0  # number of false positives
         # number of keywords that have not been added to the filter
@@ -55,7 +55,7 @@ class BloomFilter:
         """
         Statistics about the filter
         """
-        print("Number of Addded Keywords:", len(self.added_keywords))
+        print("Number of Added Keywords:", len(self.added_keywords))
         print("Number of False Positives:", self.n_false_positives)
         print("Number of True Negatives:", self.n_true_negatives)
         print("False Positive Rate:", self.false_positive_rate())
@@ -66,11 +66,11 @@ if __name__ == "__main__":
     BIT_ARRAY_SIZE = 131072
     my_filter = BloomFilter(
         BIT_ARRAY_SIZE,
-        GeneralHashFunctions.RSHash,
+        RSHash,
         hash,
-        GeneralHashFunctions.JSHash,
-        GeneralHashFunctions.SDBMHash,
-        GeneralHashFunctions.FNVHash
+        JSHash,
+        SDBMHash,
+        FNVHash
     )
     with open('code/pg1661.txt', 'r') as f:
         for line in f:
