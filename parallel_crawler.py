@@ -20,7 +20,7 @@ class CrawlerThread(threading.Thread):
     pages_count = 0
     max_pages = 10000
     queue = Queue()
-    filter = BloomFilter(131072, False, RSHash, hash, JSHash, SDBMHash, FNVHash)
+    filter = BloomFilter(1048576, False, RSHash, hash, JSHash, SDBMHash, FNVHash)
     lock = threading.Lock()
     valid_char_in_filename = '-_.() abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
@@ -34,7 +34,9 @@ class CrawlerThread(threading.Thread):
         while cls.pages_count < cls.max_pages:
             self.doc = CrawledDoc(cls.queue.get())
             cls.queue.task_done()
-            if 'sjtu' in self.doc.url and self.is_html():
+            if ('sjtu' in self.doc.url
+                    and not self.filter.query(self.doc.url)
+                    and self.is_html()):
                 try:
                     r = requests.get(self.doc.url, timeout=1)
                     content_type = r.headers['Content-Type']
@@ -60,6 +62,7 @@ class CrawlerThread(threading.Thread):
 
                     self.doc.text = soup.get_text('\n', strip=True)
                     if len(self.doc.text):
+                        self.filter.set(self.doc.url)
                         print(self.name + ':', cls.pages_count, self.doc.url)
                         try:
                             title = soup.find('title').string.strip()
