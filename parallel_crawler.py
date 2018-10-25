@@ -41,14 +41,14 @@ class CrawlerThread(threading.Thread):
                     r = requests.get(self.doc.url, timeout=1)
                     content_type = r.headers['Content-Type']
                     charset_pos = content_type.find('charset=')
-                    soup = BeautifulSoup(features='lxml')
+                    soup = BeautifulSoup(features='html5lib')
                     if charset_pos == -1:
                         # let Beautiful Soup determine encoding from <meta>
-                        soup = BeautifulSoup(r.content, 'lxml')
+                        soup = BeautifulSoup(r.content, 'html5lib')
                     else:
                         # len("charset=") == 8
                         r.encoding = content_type[charset_pos + 8:]
-                        soup = BeautifulSoup(r.text, 'lxml')
+                        soup = BeautifulSoup(r.text, 'html5lib')
 
                     for tag in soup.find_all(['script', 'style']):
                         tag.decompose()
