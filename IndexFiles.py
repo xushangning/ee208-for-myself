@@ -1,17 +1,16 @@
-#!/usr/bin/env python
-
-INDEX_DIR = "IndexFiles.index"
-
-import sys, os, lucene, threading, time
+import lucene
+import os
+import sys
+import threading
+import time
 from datetime import datetime
 
 from java.io import File
 from org.apache.lucene.analysis.miscellaneous import LimitTokenCountAnalyzer
 from org.apache.lucene.analysis.standard import StandardAnalyzer
 from org.apache.lucene.document import Document, Field, FieldType
-from org.apache.lucene.index import FieldInfo, IndexWriter, IndexWriterConfig
+from org.apache.lucene.index import IndexWriter, IndexWriterConfig, IndexOptions
 from org.apache.lucene.store import SimpleFSDirectory
-from org.apache.lucene.util import Version
 
 """
 This class is loosely based on the Lucene (java implementation) demo class 
@@ -21,6 +20,9 @@ It will index on the file path, the file name and the file contents.  The
 resulting Lucene index will be placed in the current directory and called
 'index'.
 """
+
+INDEX_DIR = "IndexFiles.index"
+
 
 class Ticker(object):
 
@@ -33,6 +35,7 @@ class Ticker(object):
             sys.stdout.flush()
             time.sleep(1.0)
 
+
 class IndexFiles(object):
     """Usage: python IndexFiles <doc_directory>"""
 
@@ -41,10 +44,10 @@ class IndexFiles(object):
         if not os.path.exists(storeDir):
             os.mkdir(storeDir)
 
-        store = SimpleFSDirectory(File(storeDir))
-        analyzer = StandardAnalyzer(Version.LUCENE_CURRENT)
+        store = SimpleFSDirectory(File(storeDir).toPath())
+        analyzer = StandardAnalyzer()
         analyzer = LimitTokenCountAnalyzer(analyzer, 1048576)
-        config = IndexWriterConfig(Version.LUCENE_CURRENT, analyzer)
+        config = IndexWriterConfig(analyzer)
         config.setOpenMode(IndexWriterConfig.OpenMode.CREATE)
         writer = IndexWriter(store, config)
 
@@ -60,15 +63,13 @@ class IndexFiles(object):
     def indexDocs(self, root, writer):
 
         t1 = FieldType()
-        t1.setIndexed(False)
         t1.setStored(True)
         t1.setTokenized(False)
         
         t2 = FieldType()
-        t2.setIndexed(True)
         t2.setStored(False)
         t2.setTokenized(True)
-        t2.setIndexOptions(FieldInfo.IndexOptions.DOCS_AND_FREQS_AND_POSITIONS)
+        t2.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS)
         
         for root, dirnames, filenames in os.walk(root):
             for filename in filenames:
@@ -78,7 +79,7 @@ class IndexFiles(object):
                 try:
                     path = os.path.join(root, filename)
                     file = open(path)
-                    contents = str(file.read(), 'gbk')
+                    contents = file.read()
                     file.close()
                     doc = Document()
                     doc.add(Field("name", filename, t1))
@@ -91,12 +92,14 @@ class IndexFiles(object):
                 except Exception as e:
                     print("Failed in indexDocs:", e)
 
+
 if __name__ == '__main__':
     lucene.initVM(vmargs=['-Djava.awt.headless=true'])
     print('lucene', lucene.VERSION)
     start = datetime.now()
     try:
-        IndexFiles('testfolder', "index")
+        prefix = 'instructions/4/samples4/'
+        IndexFiles(prefix + 'testfolder', "index")
         end = datetime.now()
         print(end - start)
     except Exception as e:
