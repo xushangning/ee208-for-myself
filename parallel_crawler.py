@@ -39,6 +39,8 @@ class CrawlerThread(threading.Thread):
                     and self.is_html()):
                 try:
                     r = requests.get(self.doc.url, timeout=1)
+                    r.raise_for_status()
+
                     content_type = r.headers['Content-Type']
                     charset_pos = content_type.find('charset=')
                     soup = BeautifulSoup(features='html5lib')
@@ -96,7 +98,8 @@ class CrawlerThread(threading.Thread):
                         cls.pages_count += 1
                         cls.lock.release()
 
-                except requests.exceptions.RequestException as e:
+                # handle exceptions in request and bad responses
+                except (requests.exceptions.RequestException, requests.exceptions.HTTPError) as e:
                     print(self.name + ': ' + self.doc.url + '\n   ', e)
 
     def is_html(self):
