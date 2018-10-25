@@ -1,7 +1,7 @@
 import os
-import re
 import threading
 from queue import Queue
+import urllib.parse
 
 import requests
 from bs4 import BeautifulSoup
@@ -78,8 +78,18 @@ class CrawlerThread(threading.Thread):
                         self.index_file.write(self.doc.url
                                               + '\t' + filename
                                               + '\t' + title + '\n')
-                        for a in soup.find_all('a', href=re.compile('^https?')):
-                            cls.queue.put(a['href'])
+
+                        # add URLs in the web page to the queue
+                        # Duplicate URLs are not removed in this stage.
+                        netloc = urllib.parse.urlparse(self.doc.url).netloc
+                        for a in soup.find_all('a', href=True):
+                            if a['href'].startswith('http'):
+                                cls.queue.put(a['href'])
+                            elif a['href'].startswith('/'):     # absolute path
+                                cls.queue.put(urllib.parse.urljoin(netloc, a['href']))
+                            elif len(a['href']):                # relative path
+                                cls.queue.put(urllib.parse.urljoin(
+                                    self.doc.url, a['href']))
                         cls.pages_count += 1
                         cls.lock.release()
 
