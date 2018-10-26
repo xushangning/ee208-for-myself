@@ -86,15 +86,17 @@ class CrawlerThread(threading.Thread):
 
                         # add URLs in the web page to the queue
                         # Duplicate URLs are not removed in this stage.
-                        netloc = urllib.parse.urlparse(self.doc.url).netloc
                         for a in soup.find_all('a', href=True):
-                            if a['href'].startswith('http'):
-                                cls.queue.put(a['href'])
-                            elif a['href'].startswith('/'):     # absolute path
-                                cls.queue.put(urllib.parse.urljoin(netloc, a['href']))
-                            elif len(a['href']):                # relative path
+                            link = a['href']
+                            if link.startswith('http'):
+                                cls.queue.put(link)
+                            elif link.startswith('/'):     # absolute path
                                 cls.queue.put(urllib.parse.urljoin(
-                                    self.doc.url, a['href']))
+                                    self.doc.url, link))
+                            elif len(link):                # relative path
+                                if not self.doc.url.endswith('/'):
+                                    link = '/' + link
+                                cls.queue.put(self.doc.url + link)
                         cls.pages_count += 1
                         cls.lock.release()
 
