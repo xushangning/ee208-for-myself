@@ -87,7 +87,7 @@ class CrawlerThread(threading.Thread):
                         # add URLs in the web page to the queue
                         # Duplicate URLs are not removed in this stage.
                         for a in soup.find_all('a', href=True):
-                            link = a['href']
+                            link = ''.join(c for c in a['href'] if not c.isspace())
                             if link.startswith('http'):
                                 cls.queue.put(link)
                             elif link.startswith('/'):     # absolute path
