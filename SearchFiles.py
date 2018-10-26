@@ -1,6 +1,7 @@
+import jieba
 import lucene
 from java.io import File
-from org.apache.lucene.analysis.standard import StandardAnalyzer
+from org.apache.lucene.analysis.core import WhitespaceAnalyzer
 from org.apache.lucene.index import DirectoryReader
 from org.apache.lucene.queryparser.classic import QueryParser
 from org.apache.lucene.search import IndexSearcher
@@ -16,29 +17,6 @@ search.close() is currently commented out because it causes a stack overflow in
 some cases.
 """
 
-INDEX_DIR = "IndexFiles.index"
-
-
-def run(searcher, analyzer):
-    while True:
-        print()
-        print("Hit enter with no input to quit.")
-        command = input("Query:")
-        if command == '':
-            return
-
-        print()
-        print("Searching for:", command)
-        query = QueryParser("contents", analyzer).parse(command)
-        scoreDocs = searcher.search(query, 50).scoreDocs
-        print("%s total matching documents." % len(scoreDocs))
-
-        for i, scoreDoc in enumerate(scoreDocs):
-            doc = searcher.doc(scoreDoc.doc)
-            print('path:', doc.get("path"), 'name:', doc.get("name"), 'score:', scoreDoc.score)
-            # print 'explain:', searcher.explain(query, scoreDoc.doc)
-
-
 if __name__ == '__main__':
     STORE_DIR = "index"
     lucene.initVM(vmargs=['-Djava.awt.headless=true'])
@@ -46,6 +24,24 @@ if __name__ == '__main__':
     #base_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
     directory = SimpleFSDirectory(File(STORE_DIR).toPath())
     searcher = IndexSearcher(DirectoryReader.open(directory))
-    analyzer = StandardAnalyzer()
-    run(searcher, analyzer)
-    del searcher
+    analyzer = WhitespaceAnalyzer()
+
+    field_names = ('url', 'title', 'site', 'filename')
+    while True:
+        print()
+        print("Hit enter with no input to quit.")
+        command = input("Query:")
+        if command == '':
+            break
+
+        print('\nSearching for:', command)
+        query = QueryParser("content", analyzer).parse(' '.join(jieba.cut(command)))
+        scoreDocs = searcher.search(query, 50).scoreDocs
+        print("%s total matching documents." % len(scoreDocs))
+
+        for i, scoreDoc in enumerate(scoreDocs):
+            doc = searcher.doc(scoreDoc.doc)
+            for n in field_names:
+                print(n + ':', doc.get(n))
+            print()
+            # print 'explain:', searcher.explain(query, scoreDoc.doc)
