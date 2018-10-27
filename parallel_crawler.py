@@ -1,6 +1,8 @@
+import sqlite3
 import threading
 from queue import Queue
 import urllib.parse
+from time import time
 
 import requests
 from bs4 import BeautifulSoup
@@ -23,8 +25,9 @@ class CrawlerThread(threading.Thread):
     lock = threading.Lock()
     valid_char_in_filename = '-_.() abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
-    def __init__(self, index_file):
-        self.index_file = index_file
+    def __init__(self, db):
+        self.db = db
+        self.cursor = db.cursor()
         self.doc = CrawledDoc()
         super().__init__()
 
@@ -60,7 +63,11 @@ class CrawlerThread(threading.Thread):
                     for img in soup.find_all('img', src=True, alt=True):
                         cls.pages_count += 1
                         print(self.name + ':', cls.pages_count, img['src'])
-                        index_file.write(img['src'] + '\t' + img['alt'] + '\t' + title + '\n')
+                        self.cursor.execute(
+                            'INSERT INTO indices VALUES (?, ?, ?, ?)',
+                            (img['src'], img['alt'], title, int(time()))
+                        )
+                    db.commit()
                     # add URLs in the web page to the queue
                     # Duplicate URLs are not removed in this stage.
                     for a in soup.find_all('a', href=True):
@@ -79,6 +86,7 @@ class CrawlerThread(threading.Thread):
                 # handle exceptions in request and bad responses
                 except (requests.exceptions.RequestException, requests.exceptions.HTTPError) as e:
                     print(self.name + ': ' + self.doc.url + '\n   ', e)
+        self.db.close()
 
     def is_html(self):
         try:
@@ -96,12 +104,22 @@ if __name__ == '__main__':
     CrawlerThread.queue.put('https://www.duokan.com')
     thread_pool = []
     N_THREADS = 1
-    index_file = open('crawled/images/index.txt', 'a')
+    IMAGES_INDEX_PATH = 'index/image_index.sqlite'
+    # Disable checking for multiple threads sharing one connection as we try to
+    # synchronize writes with the variable lock.
+    db = sqlite3.connect(IMAGES_INDEX_PATH, check_same_thread=False)
+    main_cursor = db.cursor()
+
+    main_cursor.execute('CREATE TABLE IF NOT EXISTS indices ('
+                        'url TEXT NOT NULL,'
+                        'description TEXT,'
+                        'title TEXT,'
+                        'updated_at INTEGER NOT NULL)')
 
     for _ in range(N_THREADS):
-        t = CrawlerThread(index_file)
+        t = CrawlerThread(db)
         t.start()
         thread_pool.append(t)
     for t in thread_pool:
         t.join()
-    index_file.close()
+    db.close()
