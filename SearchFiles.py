@@ -4,7 +4,7 @@ from java.io import File
 from org.apache.lucene.analysis.core import WhitespaceAnalyzer
 from org.apache.lucene.index import DirectoryReader
 from org.apache.lucene.queryparser.classic import QueryParser
-from org.apache.lucene.search import IndexSearcher
+from org.apache.lucene.search import IndexSearcher, BooleanQuery, BooleanClause
 from org.apache.lucene.store import SimpleFSDirectory
 
 """
@@ -35,13 +35,18 @@ if __name__ == '__main__':
             break
 
         print('\nSearching for:', command)
-        query = QueryParser("content", analyzer).parse(' '.join(jieba.cut(command)))
-        scoreDocs = searcher.search(query, 50).scoreDocs
-        print("%s total matching documents." % len(scoreDocs))
+        query_builder = BooleanQuery.Builder()
+        command = ' '.join(jieba.cut(command))
+        query = QueryParser('content', analyzer).parse(command)
+        query_builder.add(query, BooleanClause.Occur.SHOULD)
+        query = QueryParser('title', analyzer).parse(command)
+        query_builder.add(query, BooleanClause.Occur.SHOULD)
+        scoreDocs = searcher.search(query_builder.build(), 20).scoreDocs
 
+        print(len(scoreDocs), 'total matching documents.')
         for i, scoreDoc in enumerate(scoreDocs):
             doc = searcher.doc(scoreDoc.doc)
             for n in field_names:
                 print(n + ':', doc.get(n))
-            print()
+            print('score:', scoreDoc.score, end='\n\n')
             # print 'explain:', searcher.explain(query, scoreDoc.doc)
