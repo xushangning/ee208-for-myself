@@ -7,16 +7,6 @@ from org.apache.lucene.queryparser.classic import QueryParser
 from org.apache.lucene.search import IndexSearcher, BooleanQuery, BooleanClause
 from org.apache.lucene.store import SimpleFSDirectory
 
-"""
-This script is loosely based on the Lucene (java implementation) demo class 
-org.apache.lucene.demo.SearchFiles.  It will prompt for a search query, then it
-will search the Lucene index in the current directory called 'index' for the
-search query entered against the 'contents' field.  It will then display the
-'path' and 'name' fields for each of the hits it finds in the index.  Note that
-search.close() is currently commented out because it causes a stack overflow in
-some cases.
-"""
-
 if __name__ == '__main__':
     STORE_DIR = "index"
     lucene.initVM(vmargs=['-Djava.awt.headless=true'])

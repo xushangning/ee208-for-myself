@@ -14,17 +14,6 @@ from org.apache.lucene.document import Document, Field, FieldType
 from org.apache.lucene.index import IndexWriter, IndexWriterConfig, IndexOptions
 from org.apache.lucene.store import SimpleFSDirectory
 
-"""
-This class is loosely based on the Lucene (java implementation) demo class 
-org.apache.lucene.demo.IndexFiles.  It will take a directory as an argument
-and will index all of the files in that directory and downward recursively.
-It will index on the file path, the file name and the file contents.  The
-resulting Lucene index will be placed in the current directory and called
-'index'.
-"""
-
-INDEX_DIR = "IndexFiles.index"
-
 
 class Ticker(object):
 
