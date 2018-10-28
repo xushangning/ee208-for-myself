@@ -60,11 +60,16 @@ class CrawlerThread(threading.Thread):
 
                     cls.lock.acquire()
                     self.filter.set(self.doc.url)
+                    # find all <img> with src and alt attributes
                     for img in soup.find_all('img', src=True, alt=True):
                         if not self.filter.query(img['src']):
+                            # add image URL to the Bloom filter
                             self.filter.set(img['src'])
                             cls.pages_count += 1
                             print(self.name + ':', cls.pages_count, img['src'])
+                            # insert the image URL, its description and the
+                            # title of the webpage that links to the image
+                            # into the database
                             self.cursor.execute(
                                 'INSERT INTO indices VALUES (?, ?, ?, ?)',
                                 (img['src'], img['alt'], title, int(time()))
