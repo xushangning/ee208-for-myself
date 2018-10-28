@@ -104,7 +104,7 @@ if __name__ == '__main__':
     CrawlerThread.queue.put('https://www.duokan.com')
     thread_pool = []
     N_THREADS = 1
-    IMAGES_INDEX_PATH = 'index/image_index.sqlite'
+    IMAGES_INDEX_PATH = 'index/images/image_index.sqlite'
     # Disable checking for multiple threads sharing one connection as we try to
     # synchronize writes with the variable lock.
     db = sqlite3.connect(IMAGES_INDEX_PATH, check_same_thread=False)

@@ -1,11 +1,11 @@
 import lucene
 import os
 import sys
+import sqlite3
 import threading
 import time
 from datetime import datetime
 import jieba
-from urllib.parse import urlparse
 
 from java.io import File
 from org.apache.lucene.analysis.miscellaneous import LimitTokenCountAnalyzer
@@ -57,36 +57,21 @@ class IndexFiles(object):
         filename_fieldtype.setStored(True)
         filename_fieldtype.setTokenized(False)
         
-        content_fieldtype = FieldType()
-        content_fieldtype.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS)
-
-        title_fieldtype = FieldType(content_fieldtype)
+        title_fieldtype = FieldType()
+        title_fieldtype.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS)
         title_fieldtype.setStored(True)
 
-        site_fieldtype = FieldType()
-        site_fieldtype.setStored(True)
-        site_fieldtype.setTokenized(False)
-        site_fieldtype.setIndexOptions(IndexOptions.DOCS_AND_FREQS)
-
-        index_file = open('crawled/index.txt')
-        for line in index_file:
-            try:
-                url, filename, title = line.rstrip('\n').split('\t')
-            # Unpacking errors come from spaces in URLs.
-            except ValueError:          # skip unpacking error
-                continue
-            print('Adding ' + filename)
+        db = sqlite3.connect('index/images/image_index.sqlite')
+        cursor = db.cursor()
+        for row in cursor.execute('SELECT * FROM indices'):
+            url, description, title = row[:3]
+            print('Adding ' + description)
             doc = Document()
 
-            with open('crawled/text/' + filename, 'r') as f:
-                try:
-                    content = ' '.join(jieba.cut_for_search(f.read()))
-                except UnicodeDecodeError:
-                    continue            # skip decoding errors
-                doc.add(Field('content', content, content_fieldtype))
-            doc.add(Field('filename', filename, filename_fieldtype))
+            doc.add(Field('description',
+                          ' '.join(jieba.cut_for_search(description)),
+                          title_fieldtype))
             doc.add(Field('title', ' '.join(jieba.cut_for_search(title)), title_fieldtype))
-            doc.add(Field('site', urlparse(url).netloc, site_fieldtype))
             doc.add(Field('url', url, filename_fieldtype))
             writer.addDocument(doc)
 
@@ -96,7 +81,7 @@ if __name__ == '__main__':
     print('lucene', lucene.VERSION)
     start = datetime.now()
     try:
-        IndexFiles('index')
+        IndexFiles('index/images/')
         end = datetime.now()
         print(end - start)
     except Exception as e:
