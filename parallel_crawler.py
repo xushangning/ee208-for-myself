@@ -11,44 +11,63 @@ from bloomfilter import BloomFilter
 
 
 class CrawledDoc:
+    """A simple class that stores a crawled webpage"""
     def __init__(self, url=''):
         self.text = ''
         self.url = url
 
 
 class CrawlerThread(threading.Thread):
-    pages_count = 0
-    max_pages = 10000
-    queue = Queue()
+    """A multi-thread crawler"""
+    pages_count = 0     # count the number of webpages crawled
+    max_pages = 10000   # the target number of webpages to crawl
+    queue = Queue()     # the job queue shared among all threads
     filter = BloomFilter(1048576, False, RSHash, hash, JSHash, SDBMHash, FNVHash)
     lock = threading.Lock()
+    # characters valid for use in file name, adapted from
+    # valid_filename() in crawler.py
     valid_char_in_filename = '-_.() abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
     def __init__(self, index_file):
+        """
+        :param index_file: a file object where each line is
+        1. the URL,
+        2. the name of the file that stores the source of the webpage
+        corresponding to the URL, and
+        3. the title of the webpage.
+        """
         self.index_file = index_file
-        self.doc = CrawledDoc()
-        super().__init__()
+        self.doc = CrawledDoc()     # represent the webpage being crawled
+        super().__init__()          # call the super constructor
 
     def run(self):
-        cls = self.__class__
+        cls = self.__class__        # sugar for accessing parent class
         while cls.pages_count < cls.max_pages:
+            # retrieve a URL from the job queue and initialized a CrawledDoc
             self.doc = CrawledDoc(cls.queue.get())
-            cls.queue.task_done()
-            if ('sjtu' in self.doc.url
+            # Mark as done immediately because the crawler won't return to the
+            cls.queue.task_done()                                   # same URL.
+            if ('sjtu' in self.doc.url  # restrict to SJTU sites
+                    # query the Bloom filter
                     and not self.filter.query(self.doc.url)
-                    and self.is_html()):
-                try:
+                    and self.is_html()):    # check the Content-Type header
+                try:    # for catching request exceptions and HTTP errors
                     r = requests.get(self.doc.url, timeout=1)
-                    r.raise_for_status()
+                    r.raise_for_status()    # raise HTTP errors as exception
 
-                    # Falling back to ISO-8859-1 if no encoding is specified
-                    # is a pretty bad idea. Let Beautiful Soup determine
+                    # The Requests module will automatically inspect the
+                    # Content-Type header for encoding. If no encoding is
+                    # specified, it will fall back to ISO-8859-1, per the
+                    # requirement of RFC 2616, which can't be a worse idea.
+                    # Pass binary data to Beautiful Soup to let it determine
                     # encoding from <meta> instead.
                     if 'charset' not in r.headers['Content-Type']:
                         soup = BeautifulSoup(r.content, 'html5lib')
                     else:
                         soup = BeautifulSoup(r.text, 'html5lib')
 
+                    # strip the HTML of <script> and <style>, or they will be
+                    # returned by get_text()
                     for tag in soup.find_all(['script', 'style']):
                         tag.decompose()
                     try:
@@ -59,24 +78,32 @@ class CrawlerThread(threading.Thread):
                         print(self.name + ': ' + self.doc.url + '\n   ', e)
                         continue
 
+                    # get all the texts, stripped, separated by newline
                     self.doc.text = soup.get_text('\n', strip=True)
                     if len(self.doc.text):
+                        # mark as crawled only if it has meaningful texts
                         self.filter.set(self.doc.url)
+                        # output on successfully crawling a web page
                         print(self.name + ':', cls.pages_count, self.doc.url)
                         try:
+                            # try to extract the title
                             title = soup.find('title').string.strip()
                         except AttributeError:
-                            title = self.doc.url
+                            title = self.doc.url    # use its URL as title
                             print(self.name + ': ' + self.doc.url)
                             print('    AttributeError: the webpage doesn\'t have a title')
 
+                        # convert a URL to a valid filename
                         filename = self.url2filename()
+                        # write webpage source
                         with open('crawled/html/' + filename, 'w') as f:
                             f.write(str(soup))
+                        # write texts
                         with open('crawled/text/' + filename, 'w') as f:
                             f.write(self.doc.text)
 
                         cls.lock.acquire()
+                        # writing to the index file
                         self.index_file.write(self.doc.url
                                               + '\t' + filename
                                               + '\t' + title + '\n')
@@ -84,16 +111,18 @@ class CrawlerThread(threading.Thread):
                         # add URLs in the web page to the queue
                         # Duplicate URLs are not removed in this stage.
                         for a in soup.find_all('a', href=True):
+                            # remove all spaces in the href of <a>
                             link = ''.join(c for c in a['href'] if not c.isspace())
-                            if link.startswith('http'):
+                            if link.startswith('http'):     # full URL
                                 cls.queue.put(link)
-                            elif link.startswith('/'):     # absolute path
+                            elif link.startswith('/'):      # absolute path
                                 cls.queue.put(urllib.parse.urljoin(
                                     self.doc.url, link))
-                            elif len(link):                # relative path
+                            elif len(link):                 # relative path
                                 if not self.doc.url.endswith('/'):
                                     link = '/' + link
                                 cls.queue.put(self.doc.url + link)
+                        # increment the count after everything has been done
                         cls.pages_count += 1
                         cls.lock.release()
 
@@ -102,14 +131,20 @@ class CrawlerThread(threading.Thread):
                     print(self.name + ': ' + self.doc.url + '\n   ', e)
 
     def is_html(self):
+        """Check whether the URL stored in self.doc points to an HTML."""
         try:
-            r = requests.head(self.doc.url, timeout=1)
+            r = requests.head(self.doc.url, timeout=1)  # HEAD instead of GET
             return 'text/html' in r.headers.get('Content-Type', '')
+        # handle exceptions during request
         except requests.exceptions.RequestException as e:
             print(self.name + ': ' + self.doc.url + '\n   ', e)
             return False
 
     def url2filename(self):
+        """
+        Construct a valid filename from self.doc.url, adapted from
+        valid_filename() of crawler.py
+        """
         return ''.join(c for c in self.doc.url if c in self.__class__.valid_char_in_filename)[:64]
 
 
@@ -118,7 +153,7 @@ if __name__ == '__main__':
         os.mkdir('crawled/html')
     if not os.path.exists('crawled/text'):
         os.mkdir('crawled/text')
-    CrawlerThread.queue.put('https://www.sjtu.edu.cn')
+    CrawlerThread.queue.put('https://www.sjtu.edu.cn')  # put in the seed
     thread_pool = []
     N_THREADS = 1
     index_file = open('crawled/index.txt', 'w')
@@ -127,3 +162,6 @@ if __name__ == '__main__':
         t = CrawlerThread(index_file)
         t.start()
         thread_pool.append(t)
+    # It is fine not to join the thread, since the execution of the main thread
+    # will not stop before each of the threads it spawned exits.
+    # index_file will be closed automatically at expiration of its scope.
