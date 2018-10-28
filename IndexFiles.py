@@ -52,7 +52,7 @@ class IndexFiles(object):
         print('done')
 
     def indexDocs(self, writer):
-
+        # the field type for filename and URL
         filename_fieldtype = FieldType()
         filename_fieldtype.setStored(True)
         filename_fieldtype.setTokenized(False)
@@ -60,9 +60,12 @@ class IndexFiles(object):
         content_fieldtype = FieldType()
         content_fieldtype.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS)
 
+        # Titles should not only be indexed and tokenized, but also stored to be
+        # returned as search results
         title_fieldtype = FieldType(content_fieldtype)
         title_fieldtype.setStored(True)
 
+        # the field type for sites
         site_fieldtype = FieldType()
         site_fieldtype.setStored(True)
         site_fieldtype.setTokenized(False)
@@ -80,12 +83,14 @@ class IndexFiles(object):
 
             with open('crawled/text/' + filename, 'r') as f:
                 try:
+                    # use jieba to cut texts into words
                     content = ' '.join(jieba.cut_for_search(f.read()))
                 except UnicodeDecodeError:
                     continue            # skip decoding errors
                 doc.add(Field('content', content, content_fieldtype))
             doc.add(Field('filename', filename, filename_fieldtype))
             doc.add(Field('title', ' '.join(jieba.cut_for_search(title)), title_fieldtype))
+            # parse URLs for their domains
             doc.add(Field('site', urlparse(url).netloc, site_fieldtype))
             doc.add(Field('url', url, filename_fieldtype))
             writer.addDocument(doc)
@@ -96,6 +101,7 @@ if __name__ == '__main__':
     print('lucene', lucene.VERSION)
     start = datetime.now()
     try:
+        # index files and store the indices in `index/`
         IndexFiles('index')
         end = datetime.now()
         print(end - start)
