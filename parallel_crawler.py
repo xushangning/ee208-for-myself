@@ -21,7 +21,7 @@ class CrawlerThread(threading.Thread):
     pages_count = 0
     max_pages = 40000
     queue = Queue()
-    filter = BloomFilter(1048576, False, RSHash, hash, JSHash, SDBMHash, FNVHash)
+    filter = BloomFilter(4194304, False, RSHash, hash, JSHash, SDBMHash, FNVHash)
     lock = threading.Lock()
     valid_char_in_filename = '-_.() abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
@@ -61,12 +61,14 @@ class CrawlerThread(threading.Thread):
                     cls.lock.acquire()
                     self.filter.set(self.doc.url)
                     for img in soup.find_all('img', src=True, alt=True):
-                        cls.pages_count += 1
-                        print(self.name + ':', cls.pages_count, img['src'])
-                        self.cursor.execute(
-                            'INSERT INTO indices VALUES (?, ?, ?, ?)',
-                            (img['src'], img['alt'], title, int(time()))
-                        )
+                        if not self.filter.query(img['src']):
+                            self.filter.set(img['src'])
+                            cls.pages_count += 1
+                            print(self.name + ':', cls.pages_count, img['src'])
+                            self.cursor.execute(
+                                'INSERT INTO indices VALUES (?, ?, ?, ?)',
+                                (img['src'], img['alt'], title, int(time()))
+                            )
                     db.commit()
                     # add URLs in the web page to the queue
                     # Duplicate URLs are not removed in this stage.
