@@ -45,26 +45,26 @@ if __name__ == '__main__':
     writer = IndexWriter(store, config)
 
     # add documents to the index
-    filename_fieldtype = FieldType()
-    filename_fieldtype.setStored(True)
-    filename_fieldtype.setTokenized(False)
+    unindexed_stored_fieldtype = FieldType()
+    unindexed_stored_fieldtype.setStored(True)
+    unindexed_stored_fieldtype.setTokenized(False)
 
-    title_fieldtype = FieldType()
-    title_fieldtype.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS)
-    title_fieldtype.setStored(True)
+    stored_text_fieldtype = FieldType()
+    stored_text_fieldtype.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS)
+    stored_text_fieldtype.setStored(True)
 
     db = sqlite3.connect('index/images/image_index.sqlite')
     cursor = db.cursor()
     for row in cursor.execute('SELECT * FROM indices'):
-        url, description, title = row[:3]
+        url, description, origin = row
         print('Adding ' + description)
         doc = Document()
 
         doc.add(Field('description',
                       ' '.join(jieba.cut_for_search(description)),
-                      title_fieldtype))
-        doc.add(Field('title', ' '.join(jieba.cut_for_search(title)), title_fieldtype))
-        doc.add(Field('url', url, filename_fieldtype))
+                      stored_text_fieldtype))
+        doc.add(Field('origin', origin, unindexed_stored_fieldtype))
+        doc.add(Field('url', url, unindexed_stored_fieldtype))
         writer.addDocument(doc)
 
     # commit index

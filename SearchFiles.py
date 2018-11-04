@@ -17,7 +17,7 @@ if __name__ == '__main__':
     searcher = IndexSearcher(DirectoryReader.open(directory))
     analyzer = WhitespaceAnalyzer()
 
-    field_names = ('url', 'description', 'title')
+    field_names = ('url', 'description', 'origin')
     while True:
         print()
         print("Hit enter with no input to quit.")

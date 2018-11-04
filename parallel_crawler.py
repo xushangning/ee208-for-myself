@@ -2,7 +2,7 @@ import sqlite3
 import threading
 from queue import Queue
 import urllib.parse
-from time import time
+from time import gmtime, strftime
 
 import requests
 from bs4 import BeautifulSoup
@@ -71,8 +71,8 @@ class CrawlerThread(threading.Thread):
                             # title of the webpage that links to the image
                             # into the database
                             self.cursor.execute(
-                                'INSERT INTO indices VALUES (?, ?, ?, ?)',
-                                (img['src'], img['alt'], title, int(time()))
+                                'INSERT INTO indices VALUES (?, ?, ?)',
+                                (img['src'], img['alt'], title)
                             )
                     db.commit()
                     # add URLs in the web page to the queue
@@ -111,17 +111,18 @@ if __name__ == '__main__':
     CrawlerThread.queue.put('https://www.duokan.com')
     thread_pool = []
     N_THREADS = 1
-    IMAGES_INDEX_PATH = 'index/images/image_index.sqlite'
+    IMAGES_INDEX_PATH = 'crawled/image_list.sqlite'
     # Disable checking for multiple threads sharing one connection as we try to
     # synchronize writes with the variable lock.
     db = sqlite3.connect(IMAGES_INDEX_PATH, check_same_thread=False)
     main_cursor = db.cursor()
 
-    main_cursor.execute('CREATE TABLE IF NOT EXISTS indices ('
+    # the table name corresponds to the table creation time
+    # like 20181101_085215
+    main_cursor.execute('CREATE TABLE IF NOT EXISTS {} ('
                         'url TEXT NOT NULL,'
                         'description TEXT,'
-                        'title TEXT,'
-                        'updated_at INTEGER NOT NULL)')
+                        'origin TEXT)'.format(strftime('%Y%m%d_%H%M%S', gmtime())))
 
     for _ in range(N_THREADS):
         t = CrawlerThread(db)
