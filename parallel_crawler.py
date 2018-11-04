@@ -119,32 +119,23 @@ class CrawlerThread(threading.Thread):
 
                         # find all <img> with src and alt attributes
                         for img in soup.find_all('img', src=True, alt=True):
-                            if (not self.image_url_filter.query(img['src'])
+                            img_url = self.construct_url(img['src'])
+                            if (not self.image_url_filter.query(img_url)
                                     and len(img['alt'])):
                                 # add image URL to the Bloom filter
-                                self.image_url_filter.set(img['src'])
+                                self.image_url_filter.set(img_url)
                                 # insert the image URL, its description and its
                                 # origin into the database
                                 self.image_db_cursor.execute(
                                     'INSERT INTO {} VALUES (?, ?, ?)'.format(table_name),
-                                    (img['src'], img['alt'], self.doc.url)
+                                    (img_url, img['alt'], self.doc.url)
                                 )
                         self.image_db.commit()
 
                         # add URLs in the web page to the queue
                         # Duplicate URLs are not removed in this stage.
                         for a in soup.find_all('a', href=True):
-                            # remove all spaces in the href of <a>
-                            link = ''.join(c for c in a['href'] if not c.isspace())
-                            if link.startswith('http'):     # full URL
-                                cls.queue.put(link)
-                            elif link.startswith('/'):      # absolute path
-                                cls.queue.put(urllib.parse.urljoin(
-                                    self.doc.url, link))
-                            elif len(link):                 # relative path
-                                if not self.doc.url.endswith('/'):
-                                    link = '/' + link
-                                cls.queue.put(self.doc.url + link)
+                            cls.queue.put(self.construct_url(a['href']))
                         # increment the count after everything has been done
                         cls.pages_count += 1
                         cls.lock.release()
@@ -169,6 +160,23 @@ class CrawlerThread(threading.Thread):
         valid_filename() of crawler.py
         """
         return ''.join(c for c in self.doc.url if c in self.__class__.valid_char_in_filename)[:64]
+
+    def construct_url(self, url):
+        """
+        Construct URLs from the value of attributes like href of <a> or src of
+        <img>. This function models after browsers' behaviour.
+        :param url: str, the URL to process
+        :return: str
+        """
+        url = ''.join(c for c in url if not c.isspace())  # remove all spaces
+        if url.startswith('http'):     # full URL
+            return url
+        elif url[0] == '/':            # absolute path
+            return urllib.parse.urljoin(self.doc.url, url)
+        else:                           # relative path
+            if not self.doc.url[-1] == '/':
+                url = '/' + url
+            return self.doc.url + url
 
 
 if __name__ == '__main__':
