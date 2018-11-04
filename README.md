@@ -10,3 +10,21 @@ Running `parallel_crawle.py` will create these directories and files:
 4. `crawled/image_list.sqlite`: an SQLite database to store the list of images crawled
 
 `IndexFiles.py` will create two indices, one in `index/webpages/` for a webpage index and `index/images/` for the image index.
+
+## Database
+
+There are two databases for the list of images and webpages. The scheme for the table of webpages is
+
+Column | Description
+--- | ---
+`url` | the URL of the webpage
+`title` | the title of the webpage
+`filename` | the name of the file where the source and texts of the webpage are stored
+
+The scheme for the table of images is
+
+Column | Description
+--- | ---
+`url` | the URL of the image
+`description` | the description of the image
+`origin` | the URL of the webpage into which the image is embeded
