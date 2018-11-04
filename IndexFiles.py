@@ -1,6 +1,7 @@
 import lucene
 import os
 import sys
+import sqlite3
 import threading
 import time
 from datetime import datetime
@@ -27,84 +28,109 @@ class Ticker(object):
             time.sleep(1.0)
 
 
-class IndexFiles(object):
-    """Usage: python IndexFiles <doc_directory>"""
-
-    def __init__(self, storeDir):
-
-        if not os.path.exists(storeDir):
-            os.mkdir(storeDir)
-
-        store = SimpleFSDirectory(File(storeDir).toPath())
-        analyzer = WhitespaceAnalyzer()
-        analyzer = LimitTokenCountAnalyzer(analyzer, 1048576)
-        config = IndexWriterConfig(analyzer)
-        config.setOpenMode(IndexWriterConfig.OpenMode.CREATE)
-        writer = IndexWriter(store, config)
-
-        self.indexDocs(writer)
-        ticker = Ticker()
-        print('commit index', end=' ')
-        threading.Thread(target=ticker.run).start()
-        writer.commit()
-        writer.close()
-        ticker.tick = False
-        print('done')
-
-    def indexDocs(self, writer):
-        # the field type for filename and URL
-        filename_fieldtype = FieldType()
-        filename_fieldtype.setStored(True)
-        filename_fieldtype.setTokenized(False)
-        
-        content_fieldtype = FieldType()
-        content_fieldtype.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS)
-
-        # Titles should not only be indexed and tokenized, but also stored to be
-        # returned as search results
-        title_fieldtype = FieldType(content_fieldtype)
-        title_fieldtype.setStored(True)
-
-        # the field type for sites
-        site_fieldtype = FieldType()
-        site_fieldtype.setStored(True)
-        site_fieldtype.setTokenized(False)
-        site_fieldtype.setIndexOptions(IndexOptions.DOCS_AND_FREQS)
-
-        index_file = open('crawled/index.txt')
-        for line in index_file:
-            try:
-                url, filename, title = line.rstrip('\n').split('\t')
-            # Unpacking errors come from spaces in URLs.
-            except ValueError:          # skip unpacking error
-                continue
-            print('Adding ' + filename)
-            doc = Document()
-
-            with open('crawled/text/' + filename, 'r') as f:
-                try:
-                    # use jieba to cut texts into words
-                    content = ' '.join(jieba.cut_for_search(f.read()))
-                except UnicodeDecodeError:
-                    continue            # skip decoding errors
-                doc.add(Field('content', content, content_fieldtype))
-            doc.add(Field('filename', filename, filename_fieldtype))
-            doc.add(Field('title', ' '.join(jieba.cut_for_search(title)), title_fieldtype))
-            # parse URLs for their domains
-            doc.add(Field('site', urlparse(url).netloc, site_fieldtype))
-            doc.add(Field('url', url, filename_fieldtype))
-            writer.addDocument(doc)
-
-
 if __name__ == '__main__':
     lucene.initVM(vmargs=['-Djava.awt.headless=true'])
     print('lucene', lucene.VERSION)
     start = datetime.now()
-    try:
-        # index files and store the indices in `index/`
-        IndexFiles('index')
-        end = datetime.now()
-        print(end - start)
-    except Exception as e:
-        print("Failed: ", e)
-        raise e
+    webpage_index_store_dir = 'index/webpages/'
+    image_index_store_dir = 'index/images/'
+    if not os.path.exists(webpage_index_store_dir):
+        os.mkdir(webpage_index_store_dir)
+    if not os.path.exists(image_index_store_dir):
+        os.mkdir(image_index_store_dir)
+
+    # create a webpage index writer
+    store = SimpleFSDirectory(File(webpage_index_store_dir).toPath())
+    analyzer = WhitespaceAnalyzer()
+    analyzer = LimitTokenCountAnalyzer(analyzer, 1048576)
+    config = IndexWriterConfig(analyzer)
+    config.setOpenMode(IndexWriterConfig.OpenMode.CREATE)
+    webpage_writer = IndexWriter(store, config)
+
+    # create an image index writer
+    # DON'T share IndexWriterConfig instances across IndexWriters.
+    # make a copy here
+    store = SimpleFSDirectory(File(image_index_store_dir).toPath())
+    config = IndexWriterConfig(analyzer)
+    config.setOpenMode(IndexWriterConfig.OpenMode.CREATE)
+    image_writer = IndexWriter(store, config)
+
+    # add documents to the index
+    # the field type for filename and URL
+    unindexed_stored_fieldtype = FieldType()
+    unindexed_stored_fieldtype.setStored(True)
+    unindexed_stored_fieldtype.setTokenized(False)
+
+    content_fieldtype = FieldType()
+    content_fieldtype.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS)
+
+    # the field type for title
+    # Titles should not only be indexed and tokenized, but also stored to be
+    # returned as search results.
+    stored_text_fieldtype = FieldType(content_fieldtype)
+    stored_text_fieldtype.setStored(True)
+
+    # the field type for sites
+    site_fieldtype = FieldType()
+    site_fieldtype.setStored(True)
+    site_fieldtype.setTokenized(False)
+    site_fieldtype.setIndexOptions(IndexOptions.DOCS_AND_FREQS)
+
+    # index webpages
+    webpage_db = sqlite3.connect('crawled/webpage_list.sqlite')
+    cursor = webpage_db.cursor()
+    table_name = cursor.execute(
+        'SELECT name FROM sqlite_master '
+        'WHERE type=\'table\' ORDER BY name DESC LIMIT 1'
+    ).fetchone()[0]
+    for row in cursor.execute('SELECT * FROM ' + table_name):
+        url, title, filename = row
+        print('Adding ' + filename)
+        doc = Document()
+
+        with open('crawled/text/' + filename, 'r') as f:
+            try:
+                # use jieba to cut texts into words
+                content = ' '.join(jieba.cut_for_search(f.read()))
+            except UnicodeDecodeError:
+                continue            # skip decoding errors
+            doc.add(Field('content', content, content_fieldtype))
+        doc.add(Field('filename', filename, unindexed_stored_fieldtype))
+        doc.add(Field('title', ' '.join(jieba.cut_for_search(title)), stored_text_fieldtype))
+        # parse URLs for their domains
+        doc.add(Field('site', urlparse(url).netloc, site_fieldtype))
+        doc.add(Field('url', url, unindexed_stored_fieldtype))
+        webpage_writer.addDocument(doc)
+
+    # index images
+    image_db = sqlite3.connect('crawled/image_list.sqlite')
+    cursor = image_db.cursor()
+    table_name = cursor.execute(
+        'SELECT name FROM sqlite_master '
+        'WHERE type=\'table\' ORDER BY name DESC LIMIT 1'
+    ).fetchone()[0]
+    for row in cursor.execute('SELECT * FROM ' + table_name):
+        url, description, origin = row
+        print('Adding ' + description)
+        doc = Document()
+
+        doc.add(Field('description',
+                      ' '.join(jieba.cut_for_search(description)),
+                      stored_text_fieldtype))
+        doc.add(Field('origin', origin, unindexed_stored_fieldtype))
+        doc.add(Field('url', url, unindexed_stored_fieldtype))
+        image_writer.addDocument(doc)
+
+    # commit index
+    ticker = Ticker()
+    print('commit index', end=' ')
+    threading.Thread(target=ticker.run).start()
+    webpage_writer.commit()
+    webpage_writer.close()
+    image_writer.commit()
+    image_writer.close()
+    ticker.tick = False
+    print('done')
+
+    end = datetime.now()
+    print(end - start)

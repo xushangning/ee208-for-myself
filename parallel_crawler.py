@@ -1,7 +1,9 @@
 import os
+import sqlite3
 import threading
 from queue import Queue
 import urllib.parse
+from time import gmtime, strftime
 
 import requests
 from bs4 import BeautifulSoup
@@ -22,21 +24,26 @@ class CrawlerThread(threading.Thread):
     pages_count = 0     # count the number of webpages crawled
     max_pages = 10000   # the target number of webpages to crawl
     queue = Queue()     # the job queue shared among all threads
-    filter = BloomFilter(1048576, False, RSHash, hash, JSHash, SDBMHash, FNVHash)
+    webpage_url_filter = BloomFilter(1048576, False, RSHash, hash, JSHash,
+                                     SDBMHash, FNVHash)
+    image_url_filter = BloomFilter(4194304, False, RSHash, hash, JSHash,
+                                   SDBMHash, FNVHash)
     lock = threading.Lock()
     # characters valid for use in file name, adapted from
     # valid_filename() in crawler.py
     valid_char_in_filename = '-_.() abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
-    def __init__(self, index_file):
+    def __init__(self, webpage_db, image_db, table_name):
         """
-        :param index_file: a file object where each line is
-        1. the URL,
-        2. the name of the file that stores the source of the webpage
-        corresponding to the URL, and
-        3. the title of the webpage.
+        :param webpage_db: database for webpages
+        :param image_db: database for images
+        :param table_name: the table name to operate on
         """
-        self.index_file = index_file
+        self.webpage_db = webpage_db
+        self.webpage_db_cursor = webpage_db.cursor()
+        self.image_db = image_db
+        self.image_db_cursor = image_db.cursor()
+        self.table_name = table_name
         self.doc = CrawledDoc()     # represent the webpage being crawled
         super().__init__()          # call the super constructor
 
@@ -49,7 +56,7 @@ class CrawlerThread(threading.Thread):
             cls.queue.task_done()                                   # same URL.
             if ('sjtu' in self.doc.url  # restrict to SJTU sites
                     # query the Bloom filter
-                    and not self.filter.query(self.doc.url)
+                    and not self.webpage_url_filter.query(self.doc.url)
                     and self.is_html()):    # check the Content-Type header
                 try:    # for catching request exceptions and HTTP errors
                     r = requests.get(self.doc.url, timeout=1)
@@ -82,7 +89,7 @@ class CrawlerThread(threading.Thread):
                     self.doc.text = soup.get_text('\n', strip=True)
                     if len(self.doc.text):
                         # mark as crawled only if it has meaningful texts
-                        self.filter.set(self.doc.url)
+                        self.webpage_url_filter.set(self.doc.url)
                         # output on successfully crawling a web page
                         print(self.name + ':', cls.pages_count, self.doc.url)
                         try:
@@ -103,10 +110,25 @@ class CrawlerThread(threading.Thread):
                             f.write(self.doc.text)
 
                         cls.lock.acquire()
-                        # writing to the index file
-                        self.index_file.write(self.doc.url
-                                              + '\t' + filename
-                                              + '\t' + title + '\n')
+                        # writing to the webpage database
+                        self.webpage_db_cursor.execute(
+                            'INSERT INTO {} VALUES (?, ?, ?)'.format(table_name),
+                            (self.doc.url, title, filename)
+                        )
+                        self.webpage_db.commit()
+
+                        # find all <img> with src and alt attributes
+                        for img in soup.find_all('img', src=True, alt=True):
+                            if not self.image_url_filter.query(img['src']):
+                                # add image URL to the Bloom filter
+                                self.image_url_filter.set(img['src'])
+                                # insert the image URL, its description and its
+                                # origin into the database
+                                self.image_db_cursor.execute(
+                                    'INSERT INTO {} VALUES (?, ?, ?)'.format(table_name),
+                                    (img['src'], img['alt'], self.doc.url)
+                                )
+                        self.image_db.commit()
 
                         # add URLs in the web page to the queue
                         # Duplicate URLs are not removed in this stage.
@@ -155,13 +177,33 @@ if __name__ == '__main__':
         os.mkdir('crawled/text')
     CrawlerThread.queue.put('https://www.sjtu.edu.cn')  # put in the seed
     thread_pool = []
-    N_THREADS = 1
-    index_file = open('crawled/index.txt', 'w')
+    N_THREADS = 4
+
+    # Disable checking for multiple threads sharing one connection as we try to
+    # synchronize writes with the variable lock.
+    webpage_db = sqlite3.connect('crawled/webpage_list.sqlite',
+                                 check_same_thread=False)
+    image_db = sqlite3.connect('crawled/image_list.sqlite', check_same_thread=False)
+
+    # the table name corresponds to the table creation time
+    # like at_20181101_085215
+    table_name = strftime('at_%Y%m%d_%H%M%S', gmtime())
+    main_cursor = webpage_db.cursor()
+    main_cursor.execute('CREATE TABLE IF NOT EXISTS {} ('
+                        'url TEXT NOT NULL,'
+                        'title TEXT,'
+                        'filename TEXT NOT NULL)'.format(table_name))
+    main_cursor = image_db.cursor()
+    main_cursor.execute('CREATE TABLE IF NOT EXISTS {} ('
+                        'url TEXT NOT NULL,'
+                        'description TEXT,'
+                        'origin TEXT)'.format(table_name))
 
     for _ in range(N_THREADS):
-        t = CrawlerThread(index_file)
+        t = CrawlerThread(webpage_db, image_db, table_name)
         t.start()
         thread_pool.append(t)
-    # It is fine not to join the thread, since the execution of the main thread
-    # will not stop before each of the threads it spawned exits.
-    # index_file will be closed automatically at expiration of its scope.
+    for t in thread_pool:
+        t.join()
+    webpage_db.close()
+    image_db.close()
