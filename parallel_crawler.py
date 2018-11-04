@@ -119,7 +119,8 @@ class CrawlerThread(threading.Thread):
 
                         # find all <img> with src and alt attributes
                         for img in soup.find_all('img', src=True, alt=True):
-                            if not self.image_url_filter.query(img['src']):
+                            if (not self.image_url_filter.query(img['src'])
+                                    and len(img['alt'])):
                                 # add image URL to the Bloom filter
                                 self.image_url_filter.set(img['src'])
                                 # insert the image URL, its description and its
