@@ -1,40 +1,30 @@
 import web
-from web import form
-import urllib.request, urllib.error, urllib.parse
-import os
 
 urls = (
-    '/', 'index',
-    '/s', 's'
+    '/', 'Index',
+    '/search', 'Search'
 )
+render = web.template.render('templates/', base='base')
+
+search_box = web.form.Form(web.form.Textbox('q', web.form.notnull))
 
 
-render = web.template.render('templates') # your templates
-
-login = form.Form(
-    form.Textbox('keyword'),
-    form.Button('Search'),
-)
-
-
-def func(command):
-    return 'Your input is '+command
-
-
-class index:
+class Index:
     def GET(self):
-        f = login()
-        return render.formtest(f)
+        # f = login()
+        # return render.formtest(f)
+        return render.index(search_box())
 
 
-class s:
+class Search:
     def GET(self):
-        user_data = web.input()
-        a = func(user_data.keyword)
-        return render.result(a)
+        search_box_copy = search_box()
+        if search_box_copy.validates():
+            return render.search(search_box_copy['q'].value)
+        else:
+            raise web.notfound()
 
 
 if __name__ == "__main__":
-
     app = web.application(urls, globals())
     app.run()
