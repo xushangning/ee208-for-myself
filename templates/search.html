@@ -1,3 +1,8 @@
-$def with (query)
+$def with (results)
 $var title: Search Results
-$query
+\
+$for result in results:
+  <div>
+    <h3>$result[0]</h3>
+    <p>matching keywords here</p>
+  </div>
