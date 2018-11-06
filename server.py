@@ -8,6 +8,8 @@ from org.apache.lucene.index import DirectoryReader, Term
 from org.apache.lucene.queryparser.classic import QueryParser
 from org.apache.lucene.search import IndexSearcher, BooleanQuery, BooleanClause, TermQuery
 from org.apache.lucene.store import SimpleFSDirectory
+from org.apache.lucene.search.highlight import (
+    SimpleHTMLFormatter, Highlighter, QueryScorer, TokenSources)
 
 urls = (
     '/', 'Index',
@@ -74,11 +76,24 @@ class Search:
 
             # build a BooleanQuery object and pass it to searcher
             # retrieve the top 10 hits
-            score_docs = searcher.search(query_builder.build(), 10).scoreDocs
+            final_query = query_builder.build()
+            score_docs = searcher.search(final_query, 10).scoreDocs
             results = []
             for score_doc in score_docs:
                 doc = searcher.doc(score_doc.doc)
-                results.append((doc.get('title'),))
+                with open('crawled/text/' + doc.get('filename')) as f:
+                    text = ' '.join(jieba.cut_for_search(f.read()))
+
+                html_formatter = SimpleHTMLFormatter('<em>', '</em>')
+                highlighter = Highlighter(html_formatter, QueryScorer(final_query))
+                index_reader = searcher.getIndexReader()
+                token_stream = TokenSources.getTokenStream(
+                    'content', index_reader.getTermVectors(score_doc.doc),
+                    text, analyzer,
+                    highlighter.getMaxDocCharsToAnalyze() - 1
+                )
+                frag = highlighter.getBestFragment(token_stream, text)
+                results.append((doc.get('title'), frag))
             return render.search(results)
         else:
             raise web.notfound()
