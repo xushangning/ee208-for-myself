@@ -77,7 +77,7 @@ def search():
         with open('crawled/text/' + doc.get('filename')) as f:
             text = ' '.join(jieba.cut_for_search(f.read()))
 
-        html_formatter = SimpleHTMLFormatter('<em>', '</em>')
+        html_formatter = SimpleHTMLFormatter('<em class="bg-warning">', '</em>')
         highlighter = Highlighter(html_formatter, QueryScorer(final_query))
         index_reader = searcher.getIndexReader()
         token_stream = TokenSources.getTokenStream(
@@ -86,7 +86,7 @@ def search():
             highlighter.getMaxDocCharsToAnalyze() - 1
         )
         frag = highlighter.getBestFragment(token_stream, text)
-        results.append((doc.get('title'), flask.Markup(frag)))
+        results.append((doc.get('title'), doc.get('url'), flask.Markup(frag)))
     return flask.render_template('search.html', results=results)
 
 
