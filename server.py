@@ -13,7 +13,8 @@ from org.apache.lucene.search.highlight import (
 
 urls = (
     '/', 'Index',
-    '/search', 'Search'
+    '/search', 'Search',
+    '/image', 'Image'
 )
 render = web.template.render('templates/', base='base')
 
@@ -95,6 +96,29 @@ class Search:
                 frag = highlighter.getBestFragment(token_stream, text)
                 results.append((doc.get('title'), frag))
             return render.search(results)
+        else:
+            raise web.notfound()
+
+
+class Image:
+    def GET(self):
+        search_box_copy = search_box()
+        if search_box_copy.validates():
+            lucene.getVMEnv().attachCurrentThread()
+            directory = SimpleFSDirectory(File('index/images/').toPath())
+            searcher = IndexSearcher(DirectoryReader.open(directory))
+            analyzer = WhitespaceAnalyzer()
+
+            user_query = search_box_copy['q'].value
+            query = QueryParser('description', analyzer).parse(
+                ' '.join(jieba.cut(user_query)))
+            top_docs = searcher.search(query, 10).scoreDocs
+
+            results = []
+            for score_doc in top_docs:
+                doc = searcher.doc(score_doc.doc)
+                results.append((doc.get('url'), doc.get('description'), doc.get('origin')))
+            return str(results)
         else:
             raise web.notfound()
 
