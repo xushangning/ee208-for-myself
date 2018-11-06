@@ -1,5 +1,8 @@
-$var title: Lucene-Based Search Engine
+{% extends "base.html" %}
+{% block title %}Lucene-Based Search Engine{% endblock %}
+{% block body %}
 <form action="/search" method="get">
   <input name="q" id="q">
   <button type="submit">Search</button>
 </form>
+{% endblock %}

@@ -1,8 +1,10 @@
-$def with (results)
-$var title: Search Results
-\
-$for result in results:
-  <div>
-    <h3>$result[0]</h3>
-    <p>$:result[1]</p>
-  </div>
+{% extends "base.html" %}
+{% block title %}Search Results{% endblock %}
+{% block body %}
+{% for result in results %}
+<div>
+  <h3>{{ result[0] }}</h3>
+  <p>{{ result[1] }}</p>
+</div>
+{% endfor %}
+{% endblock %}
