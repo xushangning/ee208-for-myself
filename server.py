@@ -106,4 +106,4 @@ def image_search():
     for score_doc in top_docs:
         doc = searcher.doc(score_doc.doc)
         results.append((doc.get('url'), doc.get('description'), doc.get('origin')))
-    return str(results)
+    return flask.render_template('image.html', results=results)
