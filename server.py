@@ -81,7 +81,7 @@ def search():
             text = ' '.join(jieba.cut_for_search(f.read()))
 
         # HTML formatter applies HTML markups to highlighted terms
-        html_formatter = SimpleHTMLFormatter('<em class="bg-warning">', '</em>')
+        html_formatter = SimpleHTMLFormatter('<em class="bg-highlight">', '</em>')
         # Highlighter determines which parts of a document should be highlighted
         # and the context of the highlighte term to return.
         highlighter = Highlighter(html_formatter, QueryScorer(final_query))

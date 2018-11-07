@@ -3,12 +3,15 @@
 {% extends "base.html" %}                               {# specifies the template to inherit #}
 {% block title %}Search Results{% endblock %}           {# define the webpage title #}
 {% block head %}                                        {# to be included in <head> #}
+<link href="{{ url_for('static', filename='vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
 <style>
   em {
     font-style: normal;
   }
+  .bg-highlight {
+    background-color: #ffea00 !important;
+  }
 </style>
-<link href="{{ url_for('static', filename='vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
 {% endblock head %}
 {% block body %}                                        {# to be included in <body> #}
 <section class="bg-light">
