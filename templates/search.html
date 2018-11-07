@@ -13,12 +13,15 @@
 {% block body %}                                        {# to be included in <body> #}
 <section class="bg-light">
   <div class="container">
-    <div class="row">
+    <div class="col-9">
     {% for result in results %}
-      <div>  {#   webpage link            title            #}
-        <a href="{{ result[1] }}"><h5>{{ result[0] }}</h5></a>
-          {# text fragment #}
-        <p>{{ result[2] }}</p>
+      <div class="card my-2">
+        <div class="card-body">
+          {#        webpage link                               title            #}
+          <a href="{{ result[1] }}"><h5 class="card-title">{{ result[0] }}</h5></a>
+                              {# text fragment #}
+          <p class="card-text">{{ result[2] }}</p>
+        </div>
       </div>
     {% endfor %}
     </div>
