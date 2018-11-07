@@ -45,6 +45,7 @@ def index():
 
 @app.route('/search')
 def search():
+    # The query string is parsed into a dictionary.
     user_query = flask.request.args['q']
     lucene.getVMEnv().attachCurrentThread()
     directory = SimpleFSDirectory(File('index/webpages/').toPath())
@@ -73,11 +74,16 @@ def search():
     score_docs = searcher.search(final_query, 10).scoreDocs
     results = []
     for score_doc in score_docs:
+        # retrieve the document
         doc = searcher.doc(score_doc.doc)
+        # read and cut the original text
         with open('crawled/text/' + doc.get('filename')) as f:
             text = ' '.join(jieba.cut_for_search(f.read()))
 
+        # HTML formatter applies HTML markups to highlighted terms
         html_formatter = SimpleHTMLFormatter('<em class="bg-warning">', '</em>')
+        # Highlighter determines which parts of a document should be highlighted
+        # and the context of the highlighte term to return.
         highlighter = Highlighter(html_formatter, QueryScorer(final_query))
         index_reader = searcher.getIndexReader()
         token_stream = TokenSources.getTokenStream(
@@ -85,8 +91,12 @@ def search():
             text, analyzer,
             highlighter.getMaxDocCharsToAnalyze() - 1
         )
+        # get the best fragment to display in search results
         frag = highlighter.getBestFragment(token_stream, text)
+        # append the title of the webpage and the text fragment to the result set
         results.append((doc.get('title'), doc.get('url'), flask.Markup(frag)))
+    # render the template "search.html" and pass the variable "results" to the
+    # variable "results" in the template
     return flask.render_template('search.html', results=results)
 
 
