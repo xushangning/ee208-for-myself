@@ -28,3 +28,8 @@ Column | Description
 `url` | the URL of the image
 `description` | the description of the image
 `origin` | the URL of the webpage into which the image is embeded
+
+## Links
+
+- [Apache Lucene 7.5.0 Documentation](https://lucene.apache.org/core/7_5_0/)
+- [Hadoop – Apache Hadoop 3.1.1](https://hadoop.apache.org/docs/r3.1.1/)
