@@ -1,52 +1,40 @@
-import numpy as np
+#!/usr/bin/python
+import sys
 
+from generate_graph import N_VERTICES
 
-def construct_adj_matrix():
-    """
-    Construct an adjacency matrix from input in the form
-        <id>\t<next_id1> <next_id2> ...
-    :return: numpy.ndarray an adjacency matrix
-    """
-    n = int(input())    # the dimension of the adjacency matrix
-    adj_m = np.zeros((n, n), np.int8)
-    for _ in range(n):
-        line = input()
-        vertex_id, line = line.split('\t', 1)
-        vertex_id = int(vertex_id) - 1
-        for next_id in (int(x) - 1 for x in line.split(' ')):
-            adj_m[vertex_id][next_id] = 1
-    return adj_m
-
-
-def pagerank(alpha, adj_m, n_iter):
-    """
-    Calculate PageRank for a graph specified in an n * n adjacency matrix.
-    :param alpha: float the teleport probability
-    :param adj_m: numpy.ndarray an n * n adjacency matrix
-    :param n_iter: int the number of iterations
-    :return: numpy.ndarray an n * 1 vector
-    """
-    n = adj_m.shape[0]
-    tpm = np.array(adj_m, np.float64)     # transition probability matrix
-    result = np.zeros(n)
-    result[0] = 1
-
-    # construct the transition probability matrix for PageRank
-    for i in range(len(tpm)):
-        n_nonzero_entries = np.count_nonzero(tpm[i])
-        if n_nonzero_entries:
-            tpm[i] *= (1 - alpha) / n_nonzero_entries
-            tpm[i] += alpha / n
-        else:
-            tpm[i] = np.full(n, 1 / n)
-
-    for i in range(n_iter):
-        result = result @ tpm
-        print(result)
-    return result
-
+ALPHA = 0.2
 
 if __name__ == '__main__':
-    adj_m = construct_adj_matrix()
-    n_iter = int(input())   # the number of iterations to run PageRank
-    pagerank(0.5, adj_m, n_iter)
+    for line in sys.stdin:
+        vertex_id, rest = line.rstrip().split('\t', 1)
+        try:    # detect whether the vertex has out vertices
+            pagerank, out_vertices = rest.split(' ', 1)
+            # output the outgoing vertices of the vertex
+            print('|' + vertex_id, out_vertices)
+            pagerank = float(pagerank)
+            out_vertices = [int(x) for x in out_vertices.split(' ')]
+            n_out_vertices = len(out_vertices)
+
+            # split PageRank from teleporting to the all the webpages
+            contributing_pagerank = pagerank * (1 - ALPHA) / n_out_vertices
+            teleport_pagerank = pagerank * ALPHA / N_VERTICES
+            j = 0
+            for i in range(N_VERTICES):
+                if i < out_vertices[j]:
+                    print(str(i) + '\t' + str(teleport_pagerank))
+                elif i == out_vertices[j]:
+                    print(str(i) + '\t' + str(contributing_pagerank + teleport_pagerank))
+                    if j == n_out_vertices - 1:
+                        out_vertices[-1] = N_VERTICES
+                    else:
+                        j += 1
+        except ValueError:  # This vertex don't have outgoing vertices,
+            # so its PageRank will be split among all webpages for teleporting.
+            # output the outgoing vertices of the vertex (there are none)
+            print('|' + vertex_id)
+            pagerank = float(rest)
+            teleport_pagerank = 1 / N_VERTICES
+            # output PageRank contributed by teleporting
+            for i in range(N_VERTICES):
+                print(str(i) + '\t' + str(teleport_pagerank))
