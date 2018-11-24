@@ -1,0 +1,111 @@
+\documentclass{ee208report}
+
+\title{Lab Report 10}
+
+\begin{document}
+
+\begin{CJK}{UTF8}{gbsn}
+    \maketitle
+\end{CJK}
+
+\begin{multicols*}{2}
+
+\section{Introduction}
+
+In this lab report, we present our work on basic image processing techniques.
+
+\section{Environment}
+
+Here is a list that summarises the programming environment used throughout the lab report:
+
+\begin{itemize}
+    \item Arch Linux
+    \item Python 3.7.1
+    \item Numpy 1.15.4
+    \item Matplotlib 3.0.2
+    \item OpenCV 4.0.0
+\end{itemize}
+
+Installation of OpenCV on Arch Linux requires using the package manager \texttt{pacman}:
+
+\begin{minted}{sh}
+pacman -S opencv
+\end{minted}
+
+\section{The Colour Histogram}
+
+The histograms illustrate the ratio of how many pixels have the given intensity (in a given base colour or in grayscale) to the total number of pixels. OpenCV, Numpy and Matpolttlib have offered their own tools in finding and plotting histograms.
+
+The script for plotting the colour histogram is \texttt{ex10-1.py} and included here for convenience in Listing~\ref{lst:colour-histogram}. Generally, the script first reads an image into a Numpy array with \texttt{cv2.imread()} and applies \texttt{calcHist()} to one of three channels for a colour image. \texttt{calcHist()} returns a $k \times 1$-dimensional Numpy array, where $k$ is the number of ``bins'' in the histogram, 256 bins in our case. \texttt{matplotlib.pyplot.plot()} utilises the returned array to plot a line chart.
+   
+The plot is available in Figure~\ref{fig:colour-histogram}. The histogram for each colour channel is plotted in the base colour of the channel i.e. blue, red or green.
+
+\begin{figure}[H]
+    \includegraphics[width=\linewidth]{../opencv/colour_hist.png}
+    \caption{Colour histograms of \texttt{img1.png} and \texttt{img2.png}}
+    \label{fig:colour-histogram}
+\end{figure}
+
+The histograms are plotted together in one figure using \texttt{pyplot.subplot()}. \texttt{subplot()} creates subplots in one figure and allows \texttt{pyplot} to access them. The plotted figure is saved with \texttt{savefig()}.
+
+Plotting a grayscale histogram is pretty much the same, so we should not repeat our discussion here.
+
+\section{Histogram of Gradient}
+
+The $x$ and $y$-component of the gradient of a grayscale image at $(x, y)$ is defined to be
+
+\begin{align*}
+    I_x(x, y) = I(x + 1, y) - I(x - 1, y)\\
+    I_y(x, y) = I(x, y + 1) - I(x, y - 1)
+\end{align*}
+
+\noindent so the magnitude of the gradient is
+
+\[
+    |\nabla I(x, y)| = \sqrt{I_x^2(x, y) + I_y^2(x, y)}
+\]
+
+\noindent and falls in the range $[0, 255\sqrt{2}]$. To produce the histogram, the decimal part of the gradient is dropped so that the range of the gradient is \{0, 1, 2,..., 360\}.
+
+Listing~\ref{lst:hog} adopts almost the same procedure. For each pixel that is not at the image border, the gradient is computed. All the gradients in the array are used to generate the plot with \texttt{pyplot.hist()}, whose \texttt{density} and \texttt{stacked} parameters, if set to \texttt{True}, ask \texttt{pyplot} to normalise the data. The plotted histogram is shown in Figure~\ref{fig:plot-hog}.
+
+\begin{figure}[H]
+    \includegraphics[width=\linewidth]{../opencv/hog.png}
+    \caption{Plot of Histogram of Gradient}
+    \label{fig:plot-hog}
+\end{figure}
+
+\end{multicols*}
+
+\begin{listing}[t]
+    \inputminted[linenos, frame=lines]{python}{../opencv/ex10-1.py}
+    \caption{Plotting histograms for colour images}
+    \label{lst:colour-histogram}
+\end{listing}
+
+\begin{listing}[t]
+    \begin{minted}[linenos, frame=lines]{python}
+for count in range(2):
+    filename = 'img{}.png'.format(count + 1)
+    img = cv.imread('../instructions/10/images/' + filename, cv.IMREAD_GRAYSCALE)
+
+    # find the gradient
+    gradient = np.zeros((img.shape[0] - 2, img.shape[1] - 2), dtype=np.int16)
+    for i in range(1, img.shape[0] - 1):
+    for j in range(1, img.shape[1] - 1):
+        # Integers must be promoted otherwise they will overflow.
+        dx = int(img[i][j + 1]) - img[i][j - 1]     # derivative in rows
+        dy = int(img[i + 1][j]) - img[i - 1][j]     # derivative in columns
+        gradient[i - 1][j - 1] = floor(sqrt(dx * dx + dy * dy))
+
+    plt.subplot(2, 1, count + 1)
+    plt.title('Gradient Histogram of ' + filename)
+    plt.hist(gradient.ravel(), 360, (0, 360), density=True, stacked=True)
+plt.tight_layout()
+plt.savefig('gradient_hist.png')
+    \end{minted}
+    \caption{Plotting the histogram of gradient}
+    \label{lst:hog}
+\end{listing}
+
+\end{document}
