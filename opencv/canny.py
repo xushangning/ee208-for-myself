@@ -14,7 +14,7 @@ def canny(img, t1, t2):
     dx = cv.Sobel(img, cv.CV_32F, 2, 0)
     dy = cv.Sobel(img, cv.CV_32F, 0, 2)
     mag = np.sqrt(dx * dx + dy * dy)
-    ang = np.arctan(dy, dx)
+    ang = np.arctan(dy / (dx + 1e-6))
 
     # draw a mesh about gradients
     plt.contourf(np.flip(mag, 0))
