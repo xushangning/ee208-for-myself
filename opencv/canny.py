@@ -64,7 +64,7 @@ def canny(img, t1, t2):
     # hysteresis
     for i in range(img.shape[0]):
         for j in range(img.shape[1]):
-            if mag[i][j] >= t1:
+            if t1 <= mag[i][j] < t2:    # if this is a weak edge
                 for offset_i, offset_j in OFFSETS:
                     i_ = i + offset_i
                     j_ = j + offset_j
