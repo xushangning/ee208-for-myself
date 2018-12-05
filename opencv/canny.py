@@ -11,8 +11,10 @@ def canny(img, t1, t2):
     :param t1: float: threshold 1
     :param t2: float: threshold 2
     """
+    # find the gradients in x and y directions
     dx = cv.Sobel(img, cv.CV_32F, 1, 0)
     dy = cv.Sobel(img, cv.CV_32F, 0, 1)
+    # magnitudes of gradients and tangents of angles
     mag = np.sqrt(dx * dx + dy * dy)
     tangents = dy / (dx + 1e-6)
 
@@ -23,8 +25,8 @@ def canny(img, t1, t2):
     plt.close()
 
     # Non-maximum suppression
-    edges = np.zeros(img.shape, np.uint8)
     suppressed_mag = np.copy(mag)
+    # only suppress magnitudes not on the borders
     for i in range(1, mag.shape[0] - 1):
         for j in range(1, mag.shape[1] - 1):
             if tangents[i][j] >= 1:
@@ -50,15 +52,22 @@ def canny(img, t1, t2):
                 suppressed_mag[i][j] = 0
 
     mag = suppressed_mag
+    # draw a mesh for magnitudes after suppression
     plt.contourf(np.flip(mag, 0))
     plt.colorbar()
     plt.savefig(OUTPUT_FOLDER_NAME + '/1_gradient_mesh_post_suppression.png')
     plt.close()
 
+    # init the image for output
+    edges = np.zeros(img.shape, np.uint8)
     # double thresholds
-    edges[mag >= t2] = 255
+    edges[mag >= t2] = 255          # mark strong edges as white in the output
     cv.imwrite(OUTPUT_FOLDER_NAME + '/1_2t.png', edges)
 
+    # index offsets for 8 cases:
+    # -1, -1    -1, 0   -1, 1
+    # 0, -1     0, 0    0, 1
+    # 1, -1     1, 0    1, 1
     OFFSETS = np.array(((-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1),
                         (1, 0), (1, 1)), np.int8)
     # hysteresis
@@ -68,9 +77,10 @@ def canny(img, t1, t2):
                 for offset_i, offset_j in OFFSETS:
                     i_ = i + offset_i
                     j_ = j + offset_j
+                    # if the index pair (i_, j_) is within the image border
                     if 0 <= i_ < img.shape[0] and 0 <= j_ < img.shape[1]:
                         if mag[i_][j_] >= t2:
-                            edges[i][j] = 255
+                            edges[i][j] = 255   # mark weak edges
                             break
     return edges
 
