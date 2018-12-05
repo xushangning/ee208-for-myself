@@ -10,5 +10,6 @@
 \RequirePackage{minted}
 \RequirePackage{CJK}
 \RequirePackage{amsmath}
+\RequirePackage{booktabs}
 
 \author{517030910384 徐尚宁}
