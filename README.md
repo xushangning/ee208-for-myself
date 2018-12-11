@@ -29,7 +29,12 @@ Column | Description
 `description` | the description of the image
 `origin` | the URL of the webpage into which the image is embeded
 
-## Links
+## References
 
 - [Apache Lucene 7.5.0 Documentation](https://lucene.apache.org/core/7_5_0/)
 - [Hadoop – Apache Hadoop 3.1.1](https://hadoop.apache.org/docs/r3.1.1/)
+
+### Image Processing
+
+- [OpenCV: OpenCV modules](https://docs.opencv.org/4.0.0/)
+- [SIFT: Theory and Practice: Introduction - AI Shack](http://aishack.in/tutorials/sift-scale-invariant-feature-transform-introduction/)
