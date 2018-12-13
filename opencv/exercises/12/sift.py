@@ -103,9 +103,9 @@ def sift(img):
                 or x + np.ceil(max_offset) > img.shape[1] or np.floor(x - max_offset) < 0:
             continue
 
+        rad = np.deg2rad(orientation)
         rotation_matrix = np.array([
-            [np.cos(orientation), - np.sin(orientation)],
-            [np.sin(orientation), np.cos(orientation)]
+            [np.cos(rad), - np.sin(rad)], [np.sin(rad), np.cos(rad)]
         ])
         # find the rotated offsets
         rotated_offsets = np.array([[rotation_matrix @ j for j in i] for i in OFFSETS])
@@ -128,10 +128,10 @@ def sift(img):
                         dy1 = y_ - floored_y_
                         dy2 = 1 - dy1
 
-                        angle_results[k][l] = angles[y][x] * dx2 * dy2 \
-                            + angles[y][x + 1] * dx1 * dy2 \
-                            + angles[y + 1][x] * dx2 * dy1 \
-                            + angles[y + 1][x + 1] * dx1 * dy1 \
+                        angle_results[k][l] = angles[y - 1][x - 1] * dx2 * dy2 \
+                            + angles[y - 1][x] * dx1 * dy2 \
+                            + angles[y][x - 1] * dx2 * dy1 \
+                            + angles[y][x] * dx1 * dy1 \
                             - orientation
                 hist = np.histogram(angle_results, 8, (0, 360))[0]
                 descriptor.append(hist)
