@@ -72,11 +72,13 @@ OFFSETS = np.array([
 def sift(img):
     keypoints = cv.goodFeaturesToTrack(img, 0, 0.01, 10).reshape(-1, 2)
 
-    dy = img[2:, 1:-1] - img[:-2, 1:-1]
-    dx = img[1:-1, 2:] - img[1:-1, :-2]
+    dy = img[2:, 1:-1].astype(np.int32) - img[:-2, 1:-1]
+    dx = img[1:-1, 2:].astype(np.int32) - img[1:-1, :-2]
     # if the image is m * n, the mags and angles array are (m - 2) * (n - 2)
     mags = np.sqrt(dx * dx + dy * dy)
-    angles = np.arctan2(dy, dx) / np.pi * 180 + 180
+    angles = np.rad2deg(np.arctan2(dy, dx))
+    # convert angle representation from (-180, 180] to [0, 360)
+    angles += (angles < 0).astype(np.int16) * 360
     # find orientation for each keypoint
     keypoints_with_orientation = []
     for x, y in keypoints:
