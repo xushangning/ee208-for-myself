@@ -96,6 +96,7 @@ def sift(img):
 
     # generate descriptors
     descriptors = []
+    keypoints = []
     for x, y, orientation in keypoints_with_orientation:
         max_offset = 7.5 * np.sqrt(2) * np.sin((orientation / 90 + 45) / 180 * np.pi)
         # reject the keypoint if a descriptor can not be generated due to border
@@ -140,17 +141,31 @@ def sift(img):
         if int(norm):
             descriptor = descriptor / norm
             descriptors.append(descriptor)
-    return np.array(descriptors).reshape(-1, 128)
+            keypoints.append((x, y))
+    return np.array(keypoints), np.array(descriptors).reshape(-1, 128)
 
 
 if __name__ == '__main__':
-    img = cv.imread('target.jpg', cv.IMREAD_GRAYSCALE)
-    descriptors1 = sift(img)
-    imgs = [cv.imread('dataset/{}.jpg'.format(i), cv.IMREAD_GRAYSCALE) for i in range(1, 6)]
-    for i in range(5):
-        descriptors = sift(imgs[i])
-        distance = 0
-        for d1 in descriptors1:
-            for d in descriptors:
-                distance += d1 @ d
-        print(i + 1, distance)
+    target = cv.imread('target.jpg', cv.IMREAD_GRAYSCALE)
+    keypoints1, descriptors1 = sift(target)
+    for i in range(1, 6):
+        img = cv.imread('dataset/{}.jpg'.format(i), cv.IMREAD_GRAYSCALE)
+        keypoints, descriptors = sift(img)
+        matched_keypoints_in_target = []
+        matched_keypoints_in_input = []
+        for j in range(keypoints1.shape[0]):
+            min_distance = 4
+            second_min_distance = 4
+            min_distance_keypoint = -1
+            for k in range(keypoints.shape[0]):
+                distance = np.sqrt(((descriptors1[j] - descriptors[k]) ** 2).sum())
+                if distance < min_distance:
+                    second_min_distance = min_distance
+                    min_distance = distance
+                    min_distance_keypoint = k
+
+            if min_distance / second_min_distance < 0.8:
+                matched_keypoints_in_target.append(keypoints1[j])
+                matched_keypoints_in_input.append(min_distance_keypoint)
+
+        print(i, len(matched_keypoints_in_target))
