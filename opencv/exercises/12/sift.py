@@ -88,8 +88,8 @@ def sift(img):
         if x < 3 or x + 3 > img.shape[0] or y < 3 or y + 3 > img.shape[1]:
             continue
 
-        mag_part = mags[y - 3: y + 1, x - 3: x + 1]
-        angle_part = angles[y - 3: y + 1, x - 3: x + 1]
+        mag_part = mags[y - 3: y + 2, x - 3: x + 2]
+        angle_part = angles[y - 3: y + 2, x - 3: x + 2]
         histogram = np.histogram(angle_part, 36, (0, 360), weights=mag_part)[0]
         threshold = histogram.max() * 0.8
         for i, weight in enumerate(histogram):
