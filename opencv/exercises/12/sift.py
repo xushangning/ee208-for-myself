@@ -88,6 +88,8 @@ def sift(img):
         if x < 3 or x + 3 > img.shape[0] or y < 3 or y + 3 > img.shape[1]:
             continue
 
+        # draw a 5 * 5 window on magnitudes and gradients
+        # Indices are offset by 1.
         mag_part = mags[y - 3: y + 2, x - 3: x + 2]
         angle_part = angles[y - 3: y + 2, x - 3: x + 2]
         histogram = np.histogram(angle_part, 36, (0, 360), weights=mag_part)[0]
@@ -118,7 +120,9 @@ def sift(img):
         for i in range(4):
             for j in range(4):
                 window = rotated_offsets[4 * i: 4 * (i + 1), 4 * j: 4 * (j + 1), :]
+                # store interpolated angles
                 angle_results = np.zeros((4, 4))
+                # for each angle to interpolate
                 for k in range(4):
                     for l in range(4):
                         x_ = x + window[k][l][0]
@@ -153,21 +157,35 @@ if __name__ == '__main__':
     for i in range(1, 6):
         img = cv.imread('dataset/{}.jpg'.format(i), cv.IMREAD_GRAYSCALE)
         keypoints, descriptors = sift(img)
-        matched_keypoints_in_target = []
-        matched_keypoints_in_input = []
+        matches_img = np.zeros((max(target.shape[0], img.shape[0]),
+                                target.shape[1] + img.shape[1]), np.uint8)
+        matches_img[:target.shape[0], :target.shape[1]] = target
+        matches_img[:img.shape[0], target.shape[1]:] = img
+        n_keypoint = 0
         for j in range(keypoints1.shape[0]):
             min_distance = 4
             second_min_distance = 4
-            min_distance_keypoint = -1
+            m = -1      # index for keypoint in img with minimum distance
             for k in range(keypoints.shape[0]):
                 distance = np.sqrt(((descriptors1[j] - descriptors[k]) ** 2).sum())
+                print(k, distance)
                 if distance < min_distance:
                     second_min_distance = min_distance
                     min_distance = distance
-                    min_distance_keypoint = k
+                    m = k
+
+            if n_keypoint > 10:
+                break
 
             if min_distance / second_min_distance < 0.8:
-                matched_keypoints_in_target.append(keypoints1[j])
-                matched_keypoints_in_input.append(min_distance_keypoint)
+                # print(n_keypoint)
+                # print(descriptors1[j])
+                # print(descriptors[m])
+                keypoint_in_img = (keypoints[m][0] + target.shape[0], keypoints[m][1])
+                keypoint_in_target = (keypoints1[j][0], keypoints1[j][1])
+                cv.circle(matches_img, keypoint_in_target, 5, 240)
+                cv.circle(matches_img, keypoint_in_img, 5, 240)
+                cv.line(matches_img, keypoint_in_target, keypoint_in_img, 240)
+            n_keypoint += 1
 
-        print(i, len(matched_keypoints_in_target))
+        cv.imwrite('matches.png', matches_img)
