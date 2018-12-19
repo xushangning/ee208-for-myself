@@ -162,13 +162,18 @@ $4 \times 4$ windows to obtain 16 8-dimensional vectors. Concatenate these
 vectors to form a 128-dimensional vector. This is 128-dimensional vector is the
 descriptor for the keypoint.
 
-The implementation for finding descriptors is available in Listing~\ref{lst:descriptor}.
+The implementation for finding descriptors is available in
+Listing~\ref{lst:descriptor}.
 
 \subsection{Keypoint matching}
 
-To find a match in one image for a keypoint in another image, the Eculidean distance is calculated between between all descriptors in one image and the descriptor of the keypoint in another image. A match is found if and only if the ratio of minimum distance to the second minimum distance is less than 0.8.
+To find a match in one image for a keypoint in another image, the Eculidean
+distance is calculated between between all descriptors in one image and the
+descriptor of the keypoint in another image. A match is found if and only if the
+ratio of minimum distance to the second minimum distance is less than 0.8.
 
-Listing~\ref{lst:keypoint-matching} gives the code for matching keypoints and marking matched keypoints between two images.
+Listing~\ref{lst:keypoint-matching} gives the code for matching keypoints and
+marking matched keypoints between two images.
 
 \section{Performance}
 
