@@ -119,23 +119,25 @@ class CrawlerThread(threading.Thread):
 
                         # find all <img> with src and alt attributes
                         for img in soup.find_all('img', src=True, alt=True):
-                            img_url = self.construct_url(img['src'])
-                            if (not self.image_url_filter.query(img_url)
-                                    and len(img['alt'])):
-                                # add image URL to the Bloom filter
-                                self.image_url_filter.set(img_url)
-                                # insert the image URL, its description and its
-                                # origin into the database
-                                self.image_db_cursor.execute(
-                                    'INSERT INTO {} VALUES (?, ?, ?)'.format(table_name),
-                                    (img_url, img['alt'], self.doc.url)
-                                )
+                            if len(img['src']):
+                                img_url = self.construct_url(img['src'])
+                                if (not self.image_url_filter.query(img_url)
+                                        and len(img['alt'])):
+                                    # add image URL to the Bloom filter
+                                    self.image_url_filter.set(img_url)
+                                    # insert the image URL, its description and its
+                                    # origin into the database
+                                    self.image_db_cursor.execute(
+                                        'INSERT INTO {} VALUES (?, ?, ?)'.format(table_name),
+                                        (img_url, img['alt'], self.doc.url)
+                                    )
                         self.image_db.commit()
 
                         # add URLs in the web page to the queue
                         # Duplicate URLs are not removed in this stage.
                         for a in soup.find_all('a', href=True):
-                            cls.queue.put(self.construct_url(a['href']))
+                            if len(a['href']):
+                                cls.queue.put(self.construct_url(a['href']))
                         # increment the count after everything has been done
                         cls.pages_count += 1
                         cls.lock.release()
