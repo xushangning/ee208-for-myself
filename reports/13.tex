@@ -1,0 +1,204 @@
+\documentclass{ee208report}
+
+\title{Lab Report 13}
+
+\begin{document}
+
+\begin{CJK}{UTF8}{gbsn}
+    \maketitle
+\end{CJK}
+
+\begin{multicols*}{2}
+
+\section{Introduction}
+
+In this lab report, we present our implementation of a Locality Sensitive Hash
+(LHS) table, which enables fast query of an image in an image database.
+
+The report is organized as follows: The idea and implementation of LHS are
+interleaved in the following sections to give an outline of the LHS algorithm
+and our implementation. Then, the performance of the hash table is measured
+under various parameters, such as the map sets used for LHS and the number of
+nearest neighbors to return. The LHS table is also put to test with an ORB-based
+nearest neighbor image search to compare search results.
+
+\begin{figure}[H]
+    \includegraphics[width=\linewidth]{images/4_regions.png}
+    \caption{An image divided into 4 regions for generating feature vectors}
+    \label{fig:regions}
+\end{figure}
+
+\section{Generating Feature Vectors}
+
+The LSH function only accepts vectors with integer components as input, so each
+image must be converted to a vector. In our implementation, the function
+\texttt{feature\_vector()} converts an image into a vector. An input image is
+evenly divided into 4 regions, and color histograms are calculated for each
+region, as shown in Figure~\ref{fig:regions}. 
+
+The histograms for the 4 regions are concatenated to form a 12-dimensional
+vector. For each component of the vector, if the component is less than 0.3, it
+is assigned the value 0, or else it is assigned the value 1 if the component is
+not less than 0.3 but less than 0.6. Otherwise, that component is assigned 2.
+The implementation of \texttt{feature\_vector()} is available in
+Listing~\ref{lst:feature-vector}.
+
+\section{The LSH Function}
+
+The Locality Sensitive Hash function, implemented as \texttt{lsh()}, returns an
+integer (in its binary representation) like any other hash functions. In this
+lab report, we take the approach of bit sampling over unary coding.
+
+\subsection{Unary coding}
+
+Unary coding encodes an integer $n$ into a binary with code length $C$ ($n \leq
+C$). The binary consists of $n$ 1s and $(C - n)$ 0s. For example, the integer 3
+will be converted to 11100 under unary coding with code length $C = 5$.
+
+To encode a vector with integer components in unary code, each component is
+individually encoded in unary code and then encoded binaries are concatenated,
+so the vector (2, 3, 4, 5) will be encoded as 11000 11100 11110 11111 (spaces
+inserted for clarity) with code length 5.
+
+\subsection{Bit sampling}
+
+We define the result of bit-sampling of a binary over a set $I \subset
+\mathbb{Z_{++}}$ to be a binary. The binary is formed as follows: For each
+element $x \in I$, we take $x$th bit of the binary in a left-to-right fashion.
+As a final example, sample the binary 11000 11100 11110 11111 over the set \{2,
+9, 12, 18\} yielding the binary 1011.
+
+\subsection{LHS}
+
+The LHS function works by first encoding a vector in unary coding and then
+bit-sampled the binary over a set $I$. Note that different sets for bit-sampling
+correspond to different hash functions. Actually, to find the hash value for a
+vector, there is no need to unary-encode a vector. If we divide an encoded
+vector $v$ (components denoted by $v_i$) into segments of length $C$, where $C$
+is the code length for unary coding, then each segment corresponds to the a
+component of the original vector. To bit-sample the vector, we select, say,
+$k$th bit of the encoded binary. If the $k$th bit falls in the $j$th segment,
+which implies $(j - 1)C < k \leq jC$, then the $k$th bit is 1 if $k - (j - 1)C
+\leq v_i$ and 0 otherwise.
+
+To see why this is the case, here is an example. Again, the vector is (2, 3, 4,
+5) and the encoded version is 11000 11100 11110 11111 for $C = 5$. Since each
+segment in the binary begins with a series of 1s, to sample the $k$th bit, where
+$k = 12$, we want to know which segment the 12th bit falls in --- that's the 3rd
+segment. Instead of directly looking at the 12th bit, we look at the second bit
+of the third segment. We know the 12th bit is the second bit of the third
+segment because
+
+\[
+    k - (j - 1)C = 2
+\]
+
+where $k = 12, j = 3, C = 5$. Now that $2 \leq v_3 = 4$, the third segment begin
+with four 1s, so the second bit in the third segment is clearly 1. To express
+such idea of the $j$th segment, we partition a set $I$ into $I|1, I|2,\dots,
+I|n$, where $n$ is the length of the original vector, and define
+
+\[
+    I|j = \{k \in I|(j - 1)C < k \leq jC\}
+\]
+
+In this way, $I|j$ contains all such $k \in I$ that falls in the $j$th segment
+of the unary code. In our implementation in Listing~\ref{lst:lsh}, we go one
+step further because the function \texttt{lsh()} takes as input a vector and a
+segmented map set. A segmented map set $I'$ is
+
+\[
+    I' = \{I'|j|j = 1, 2,\dots, n\}
+\]
+
+where
+
+\[
+    I'|j = \{k - (j - 1)C|(j - 1)C < k \leq jC, k \in I\}
+\]
+
+A segmented version of $I$ allows fast computation of LSH. The final result of
+LSH is a binary and is converted to a decimal.
+
+\section{LSH Table}
+
+LSH Table is a hash table that uses LSH as the sole hash function. It is
+implemented as the class \texttt{LSHTable} with three methods:
+
+\begin{description}
+    \item[\texttt{segment\_map\_set()}] Segment $I$ to generate $I'$;
+    \item[\texttt{add()}] Add a vector and associated satellite data (in our
+    case, filename of an image) to the table for later query;
+    \item[\texttt{knn()}] Find $k$ nearest neighbors. Distances are measured in
+    Euclidean distance.
+\end{description}
+
+\texttt{knn()} may need further elaboration. Devising new LSH functions are easy
+because a different map set gives a different hash function. There are more than
+one hash functions for \texttt{LSHTable}. When finding $k$ nearest neighbors,
+first a list of candidates is drawn from vectors that are hashed to the same
+value as the input vector for each hash function. To determine similarity
+between a candidate and the input vector, their Euclidean distance is
+calculated. The code is available in the file \texttt{lsh\_demo.py}.
+
+\section{KNN}
+
+\section{Performance}
+
+\end{multicols*}
+
+\begin{listing}
+    \begin{minted}[frame=lines, linenos]{python}
+def feature_vector(img):
+    half_height = img.shape[0] // 2
+    half_width = img.shape[1] // 2
+    # divide into 4 regions
+    regions = (img[:half_height, :half_width], img[:half_height, half_width:],
+               img[half_height:, :half_width], img[half_height:, half_width:])
+    hists = []
+    for r in regions:
+        # sum of intensity of each color
+        hist = np.array([r[:, :, i].sum() for i in range(3)], np.float64)
+        hists.append(hist / hist.sum())
+    v = np.concatenate(hists)
+    for i in range(v.shape[0]):
+        if v[i] < 0.3:
+            v[i] = 0
+        elif v[i] < 0.6:
+            v[i] = 1
+        else:
+            v[i] = 2
+    return v.astype(np.uint8)
+    \end{minted}
+    \caption{The function for converting an image to a vector}
+    \label{lst:feature-vector}
+\end{listing}
+
+\begin{listing}
+    \begin{minted}[frame=lines, linenos]{python}
+def lsh(v, seg_map_set):
+    """
+    Locality Sensitive Hashing
+    :param v: vector
+    :param seg_map_set: segmented map set
+    :return: int
+    """
+    result = ''
+    for i, s in enumerate(seg_map_set):
+        if len(s):
+            # count elements in s that are less than v[i]
+            count = 0
+            for x in s:
+                if x <= v[i]:
+                    count += 1
+                else:
+                    break
+            result += '1' * count + '0' * (len(s) - count)
+    # represent the hash value as a decimal
+    return int(result, 2)
+    \end{minted}
+    \caption{LSH function}
+    \label{lst:lsh}
+\end{listing}
+
+\end{document}

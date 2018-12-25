@@ -12,5 +12,6 @@
 \RequirePackage{amsmath}
 \RequirePackage{booktabs}
 \RequirePackage[hidelinks]{hyperref}
+\RequirePackage{amssymb}
 
 \author{517030910384 徐尚宁}
